@@ -54,8 +54,8 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 		@Override
 		public RemoteViews getLoadingView() {
 			 Log.e(TextwidgetProvider.TAG, "LOADINK");		
-		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.text_view);
-		    rv.setTextViewText(R.id.textView, "LOADING");
+		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
+		    rv.setTextViewText(R.id.loadingView, "LOADING");
 
 		    // Return the remote views object.
 		    return rv;
@@ -66,8 +66,8 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 			 Log.e(TextwidgetProvider.TAG, "GETVIEWAT");
 		    // Construct a remote views item based on the app widget item XML file, 
 		    // and set the text based on the position.
-		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.text_view);
-		    rv.setTextViewText(R.id.textView, "TEST");
+		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
+		    rv.setTextViewText(R.id.loadingView, "TEST");
 
 		    // Return the remote views object.
 		    return rv;
@@ -111,7 +111,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 	private HashMap<Integer, String> paths = new HashMap<Integer, String>();
 	private HashMap<Integer, String> textContents = new HashMap<Integer, String>();
 	
-	private static final int MAX_LINES = 100;
+	private static final int MAX_LINES = 1000;
 	static int[] appWidgetIds;
 	public static final String TAG = "Textfile_Widget";
 
@@ -252,20 +252,27 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 		
 		//=-- Set title
 		views.setTextViewText(R.id.titleContainer, file.getName());
-
+		
+		//=-- Attach update intent
+		Intent updateIntent = new Intent(context, TextwidgetProvider.class);
+		updateIntent.setAction(TextwidgetProvider.UPDATE);
+		updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+		PendingIntent updatePendingIntent = PendingIntent.getBroadcast(context, appWidgetId, updateIntent, 0);
+		views.setOnClickPendingIntent(R.id.titleContainer, updatePendingIntent);
+		
 		//=-- Attach edit button listener
 		Intent viewIntent = new Intent(context, TextwidgetProvider.class);
 		viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);
 		viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
 		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, 0);
-		views.setOnClickPendingIntent(R.id.ImageButton02, pendingIntent);
+		views.setOnClickPendingIntent(R.id.editButton, pendingIntent);
 
 		//=-- Attach settings button listener
 		Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
 		settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
 		settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
 		PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, settingsIntent, 0);
-		views.setOnClickPendingIntent(R.id.ImageButton01, settingsPendingIntent);
+		views.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
 
 		//=-- Do Android widget update
 		Log.d(TAG, "Calling Android update.");
