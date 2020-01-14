@@ -23,8 +23,10 @@ import android.widget.RemoteViewsService;
 
 /**
  * Handles the updating of the widgets
- * @author Dual Infinity
+ * <p>
+ * TODO [High] Stop file observers
  *
+ * @author Dual Infinity
  */
 public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
@@ -107,9 +109,9 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 	}
 	
 	
-	private HashMap<Integer, FileObserver> observers = new HashMap<Integer, FileObserver>();
-	private HashMap<Integer, String> paths = new HashMap<Integer, String>();
-	private HashMap<Integer, String> textContents = new HashMap<Integer, String>();
+    private HashMap<Integer, FileObserver> observers = new HashMap<>();
+    private HashMap<Integer, String> paths = new HashMap<>();
+    private HashMap<Integer, String> textContents = new HashMap<>();
 	
 	private static final int MAX_LINES = 1000;
 	static int[] appWidgetIds;
@@ -122,6 +124,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
 	/**
 	 * Starts the update for the registered widgets
+     *
 	 * @param context
 	 */
 	public void doUpdate(Context context) {
@@ -136,6 +139,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 	
 	/**
 	 * Updates the widget with the correct file contents. Also observes the file for modifications
+     *
 	 * @param context
 	 * @param views
 	 * @param appWidgetId
@@ -145,7 +149,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 		AppWidgetManager manager = AppWidgetManager.getInstance(this);
 		SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
 		
-		String path = preferences.getString("filename", "");
+		String path = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_PATH, "");
 		final File file = new File(path);
 		String readText = "";
 		

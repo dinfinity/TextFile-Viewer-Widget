@@ -43,7 +43,7 @@ public class TextwidgetProvider extends AppWidgetProvider {
 			v.vibrate(100);
 			
 			SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
-			String path = preferences.getString("filename", "");
+			String path = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_PATH, "");
 			
 			startEditor(context, path);
 			
