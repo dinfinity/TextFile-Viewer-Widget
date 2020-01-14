@@ -1,10 +1,11 @@
 package nl.knoppel.cios.android.textfilewidget;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 
 import android.app.PendingIntent;
@@ -12,10 +13,12 @@ import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.ContentObserver;
+import android.database.Cursor;
 import android.net.Uri;
-import android.os.FileObserver;
 import android.os.Handler;
 import android.os.IBinder;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
@@ -23,281 +26,313 @@ import android.widget.RemoteViewsService;
 
 /**
  * Handles the updating of the widgets
- * @author Dual Infinity
+ * <p>
+ * TODO [High] Stop file observers
  *
+ * @author Dual Infinity
  */
 public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
-	
-	public class ListViewFactory implements RemoteViewsService.RemoteViewsFactory {
 
-		private Context mContext;
-		private int mAppWidgetId;
-		private HashMap<Integer, String> textContents;
+    public class ListViewFactory implements RemoteViewsService.RemoteViewsFactory {
 
-		public ListViewFactory(Context context, Intent intent) {
-		        mContext = context;
-		        mAppWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,AppWidgetManager.INVALID_APPWIDGET_ID);
-		    }
+        private Context mContext;
+        private int mAppWidgetId;
+        private HashMap<Integer, String> textContents;
 
-		
-		@Override
-		public int getCount() {
-			return 1;
-		}
+        public ListViewFactory(Context context, Intent intent) {
+            mContext = context;
+            mAppWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+        }
 
-		@Override
-		public long getItemId(int position) {
-			return 0;
-		}
 
-		@Override
-		public RemoteViews getLoadingView() {
-			 Log.e(TextwidgetProvider.TAG, "LOADINK");		
-		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
-		    rv.setTextViewText(R.id.loadingView, "LOADING");
+        @Override
+        public int getCount() {
+            return 1;
+        }
 
-		    // Return the remote views object.
-		    return rv;
-		}
+        @Override
+        public long getItemId(int position) {
+            return 0;
+        }
 
-		@Override
-		public RemoteViews getViewAt(int position) {
-			 Log.e(TextwidgetProvider.TAG, "GETVIEWAT");
-		    // Construct a remote views item based on the app widget item XML file, 
-		    // and set the text based on the position.
-		    RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
-		    rv.setTextViewText(R.id.loadingView, "TEST");
+        @Override
+        public RemoteViews getLoadingView() {
+            Log.e(TextwidgetProvider.TAG, "LOADINK");
+            RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
+            rv.setTextViewText(R.id.loadingView, "LOADING");
 
-		    // Return the remote views object.
-		    return rv;
-		}
-		
-		@Override
-		public int getViewTypeCount() {
-			// TODO Auto-generated method stub
-			return 1;
-		}
+            // Return the remote views object.
+            return rv;
+        }
 
-		@Override
-		public boolean hasStableIds() {
-			// TODO Auto-generated method stub
-			return false;
-		}
+        @Override
+        public RemoteViews getViewAt(int position) {
+            Log.e(TextwidgetProvider.TAG, "GETVIEWAT");
+            // Construct a remote views item based on the app widget item XML file,
+            // and set the text based on the position.
+            RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
+            rv.setTextViewText(R.id.loadingView, "TEST");
 
-		@Override
-		public void onCreate() {
-			// TODO Auto-generated method stub
+            // Return the remote views object.
+            return rv;
+        }
 
-		}
+        @Override
+        public int getViewTypeCount() {
+            // TODO Auto-generated method stub
+            return 1;
+        }
 
-		@Override
-		public void onDataSetChanged() {
-		}
+        @Override
+        public boolean hasStableIds() {
+            // TODO Auto-generated method stub
+            return false;
+        }
 
-		@Override
-		public void onDestroy() {
-		}
+        @Override
+        public void onCreate() {
+            // TODO Auto-generated method stub
 
-		public void setTextContents(HashMap<Integer, String> textContents) {
-			Log.e(TextwidgetProvider.TAG, "SETTEXT");
-			this.textContents = textContents;
-		}
+        }
 
-	}
-	
-	
-	private HashMap<Integer, FileObserver> observers = new HashMap<Integer, FileObserver>();
-	private HashMap<Integer, String> paths = new HashMap<Integer, String>();
-	private HashMap<Integer, String> textContents = new HashMap<Integer, String>();
-	
-	private static final int MAX_LINES = 1000;
-	static int[] appWidgetIds;
-	public static final String TAG = "Textfile_Widget";
+        @Override
+        public void onDataSetChanged() {
+        }
 
-	@Override
-	public void onStart(Intent intent, int startId) {
-		doUpdate(this);
-	}
+        @Override
+        public void onDestroy() {
+        }
 
-	/**
-	 * Starts the update for the registered widgets
-	 * @param context
-	 */
-	public void doUpdate(Context context) {
-		RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
+        public void setTextContents(HashMap<Integer, String> textContents) {
+            Log.e(TextwidgetProvider.TAG, "SETTEXT");
+            this.textContents = textContents;
+        }
 
-		if (getAppWidgetIds() != null) {
-			for (int appWidgetId : getAppWidgetIds()) {
-				updateWidget(context, views, appWidgetId);
-			}
-		}
-	}
-	
-	/**
-	 * Updates the widget with the correct file contents. Also observes the file for modifications
-	 * @param context
-	 * @param views
-	 * @param appWidgetId
-	 */
-	public void updateWidget(final Context context, final RemoteViews views, final int appWidgetId) {
-		Log.i(TAG, "Updating widget: " + appWidgetId);
-		AppWidgetManager manager = AppWidgetManager.getInstance(this);
-		SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
-		
-		String path = preferences.getString("filename", "");
-		final File file = new File(path);
-		String readText = "";
-		
-		// =-- Start file observer if necessary
-		FileObserver previousObserver = observers.get(appWidgetId);
-		String previousPath = paths.get(appWidgetId);
-		Log.d(TAG, "Paths: " + previousPath + " - "+path);
-		boolean notObservingYet = previousObserver == null; 
-		
-		if (path != null && (notObservingYet || previousPath == null || !previousPath.equals(path))) {
-			final Handler handler = new Handler();
-			if (previousObserver != null) {
-				previousObserver.stopWatching();
-				this.observers.remove(appWidgetId);
+    }
+
+
+    private HashMap<Integer, ContentObserver> observers = new HashMap<>();
+    private HashMap<Integer, String> uris = new HashMap<>();
+    private HashMap<Integer, String> textContents = new HashMap<>();
+
+    private static final int MAX_LINES = 1000;
+    static int[] appWidgetIds;
+    public static final String TAG = "Textfile_Widget";
+
+    @Override
+    public void onStart(Intent intent, int startId) {
+        doUpdate(this);
+    }
+
+    /**
+     * Starts the update for the registered widgets
+     *
+     * @param context
+     */
+    public void doUpdate(Context context) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
+
+        if (getAppWidgetIds() != null) {
+            for (int appWidgetId : getAppWidgetIds()) {
+                updateWidget(context, views, appWidgetId);
+            }
+        }
+    }
+
+    /**
+     * Updates the widget with the correct file contents. Also observes the file for modifications
+     *
+     * @param context
+     * @param views
+     * @param appWidgetId
+     */
+    public void updateWidget(final Context context, final RemoteViews views, final int appWidgetId) {
+        Log.i(TAG, "Updating widget: " + appWidgetId);
+        AppWidgetManager manager = AppWidgetManager.getInstance(this);
+        SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
+
+        String uriString = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_URI, "");
+        Uri uri = Uri.parse(uriString);
+        String readText = "";
+
+        // =-- Start file observer if necessary
+        ContentObserver previousObserver = observers.get(appWidgetId);
+        String previousUri = uris.get(appWidgetId);
+        Log.d(TAG, "Uris: " + previousUri + " - " + uriString);
+        boolean notObservingYet = previousObserver == null;
+
+        if (uri != null && (notObservingYet || previousUri == null || !previousUri.equals(uriString))) {
+            final Handler handler = new Handler();
+            if (previousObserver != null) {
+
+                getContentResolver().unregisterContentObserver(previousObserver);
+                this.observers.remove(appWidgetId);
 //				TextwidgetProvider.observers.remove(appWidgetId);
-				Log.i(TAG, "Removed observer for widget: " + appWidgetId);
-			}
-			
-			FileObserver observer = new FileObserver(path, FileObserver.MODIFY) {
+                Log.i(TAG, "Removed observer for widget: " + appWidgetId);
+            }
 
-				@Override
-				public void onEvent(final int event, final String path) {
-					handler.post(new Runnable() {
+            ContentObserver observer = new ContentObserver(handler) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    handler.post(new Runnable() {
 
-						@Override
-						/**
-						 * Update the widget if the file has changed
-						 */
-						public void run() {
-							Log.i(TAG, "File modified, initiating update for widget - "+appWidgetId);
-							updateWidget(context, views, appWidgetId);
-							
-							boolean notifyDropbox = false;
-							if (notifyDropbox) {
-								notifyDropbox(context, file);
-							}
+                        @Override
+                        /**
+                         * Update the widget if the file has changed
+                         */
+                        public void run() {
+                            Log.i(TAG, "File modified, initiating update for widget - " + appWidgetId);
+                            updateWidget(context, views, appWidgetId);
+                        }
+                    });
 
-						}
-
-						/**
-						 *	Meant to notify the dropbox package of changes to the file
-						 */
-						private void notifyDropbox(final Context context, final File file) {
-							Intent dbIntent = new Intent(android.content.Intent.ACTION_SEND);
-							dbIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(file));
-							dbIntent.setType("*/*");
-							dbIntent.setPackage("com.dropbox.android");
-							dbIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-							context.startActivity(dbIntent);
-						}
-					});
-
-				}
-			};
-			Log.i(TAG, "Observing modification for path: " + path);
-			observer.startWatching();
-			this.observers.put(appWidgetId, observer);
+                }
+            };
+            Log.i(TAG, "Observing modification for uri: " + uriString);
+            try {
+                getContentResolver().registerContentObserver(uri, false, observer);
+                this.observers.put(appWidgetId, observer);
 //			TextwidgetProvider.observers.put(appWidgetId, observer);
-			this.paths.put(appWidgetId, path);
-		}
+                this.uris.put(appWidgetId, uriString);
+            } catch (IllegalArgumentException e) {
+                uri = null;
+            }
+        }
 
-		if (file == null || file.isDirectory()) {
-			textContents.put(appWidgetId, "Erroneous input file.");
-			Log.d(TAG, "Erroneous input file.");
-		} else {
-		
-			try {
-				BufferedReader reader = new BufferedReader(new FileReader(file));
-				String line = reader.readLine();
-				int linesRead = 1;
-				while (line != null && linesRead < MAX_LINES) {
-					readText += line + "\r\n";
-					line = reader.readLine();
-					linesRead++;
-					textContents.put(linesRead, line);
-				}
-				this.paths.put(appWidgetId, path);
-				reader.close();
+        if (uri == null) {
+            textContents.put(appWidgetId, "Erroneous input file.");
+            Log.d(TAG, "Erroneous input file.");
+        } else {
 
-			} catch (FileNotFoundException e) {
-				textContents.put(appWidgetId, "File not found.");
-				Log.d(TAG, e.toString());
-			} catch (IOException e) {
-				textContents.put(appWidgetId, "Error opening file.");
-				Log.d(TAG, e.toString());
-			} catch (Exception e) {
-				textContents.put(appWidgetId, "Unknown error: " + e.getMessage());
-				Log.d(TAG, e.toString());
-			}
-		}
-		
-		Log.d(TAG, "File successfully read.");
-		
-		//=-- Link this service to remoteviews and the listview
+            InputStream inputStream = null;
+            InputStreamReader isReader = null;
+            BufferedReader reader = null;
+            try {
+                inputStream = getContentResolver().openInputStream(uri);
+                isReader = new InputStreamReader(inputStream);
+                reader = new BufferedReader(isReader);
+                String line = reader.readLine();
+                int linesRead = 1;
+                while (line != null && linesRead < MAX_LINES) {
+                    readText += line + "\r\n";
+                    line = reader.readLine();
+                    linesRead++;
+                    textContents.put(linesRead, line);
+                }
+                this.uris.put(appWidgetId, uriString);
+
+            } catch (FileNotFoundException e) {
+                textContents.put(appWidgetId, "File not found.");
+                Log.d(TAG, e.toString());
+            } catch (IOException e) {
+                textContents.put(appWidgetId, "Error opening file.");
+                Log.d(TAG, e.toString());
+            } catch (Exception e) {
+                textContents.put(appWidgetId, "Unknown error: " + e.getMessage());
+                Log.d(TAG, e.toString());
+            } finally {
+                try {
+                    if (reader != null) {
+                        reader.close();
+                    }
+                    if (isReader != null) {
+                        isReader.close();
+                    }
+                    if (inputStream != null) {
+                        inputStream.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        Log.d(TAG, "File successfully read.");
+
+        //=-- Link this service to remoteviews and the listview
 //		int randomNumber = (int)(Math.random()*10000);
 //		Intent thisIntent = new Intent(context,TextwidgetProviderUpdateService.class);
 //		thisIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
 //		thisIntent.putExtra("random", randomNumber);
 //		thisIntent.setData(Uri.parse(thisIntent.toUri(Intent.URI_INTENT_SCHEME)));
 //		views.setRemoteAdapter(R.id.listView1, thisIntent);
-		
-		//=-- Set content text
-		views.setTextViewText(R.id.textContainer, readText);
-		
-		//=-- Set title
-		views.setTextViewText(R.id.titleContainer, file.getName());
-		
-		//=-- Attach update intent
-		Intent updateIntent = new Intent(context, TextwidgetProvider.class);
-		updateIntent.setAction(TextwidgetProvider.UPDATE);
-		updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-		PendingIntent updatePendingIntent = PendingIntent.getBroadcast(context, appWidgetId, updateIntent, 0);
-		views.setOnClickPendingIntent(R.id.titleContainer, updatePendingIntent);
-		
-		//=-- Attach edit button listener
-		Intent viewIntent = new Intent(context, TextwidgetProvider.class);
-		viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);
-		viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, 0);
-		views.setOnClickPendingIntent(R.id.editButton, pendingIntent);
 
-		//=-- Attach settings button listener
-		Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
-		settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
-		settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-		PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, settingsIntent, 0);
-		views.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
+        //=-- Set content text
+        views.setTextViewText(R.id.textContainer, readText);
 
-		//=-- Do Android widget update
-		Log.d(TAG, "Calling Android update.");
-		manager.updateAppWidget(appWidgetId, views);
-	}
+        //=-- Set title
+        if (uri != null) {
+            views.setTextViewText(R.id.titleContainer, getFileName(uri));
+        }
 
-	@Override
-	public IBinder onBind(Intent intent) {
-		return null;
-	}
+        //=-- Attach update intent
+        Intent updateIntent = new Intent(context, TextwidgetProvider.class);
+        updateIntent.setAction(TextwidgetProvider.UPDATE);
+        updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        PendingIntent updatePendingIntent = PendingIntent.getBroadcast(context, appWidgetId, updateIntent, 0);
+        views.setOnClickPendingIntent(R.id.titleContainer, updatePendingIntent);
 
-	@Override
-	public RemoteViewsFactory onGetViewFactory(Intent intent) {
-		Log.d(TAG, "ONGETVIEW.");
-		ListViewFactory factory = new ListViewFactory(this.getApplicationContext(), intent);
+        //=-- Attach edit button listener
+        Intent viewIntent = new Intent(context, TextwidgetProvider.class);
+        viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);
+        viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, 0);
+        views.setOnClickPendingIntent(R.id.editButton, pendingIntent);
+
+        //=-- Attach settings button listener
+        Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
+        settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
+        settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, settingsIntent, 0);
+        views.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
+
+        //=-- Do Android widget update
+        Log.d(TAG, "Calling Android update.");
+        manager.updateAppWidget(appWidgetId, views);
+    }
+
+    public String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public RemoteViewsFactory onGetViewFactory(Intent intent) {
+        Log.d(TAG, "ONGETVIEW.");
+        ListViewFactory factory = new ListViewFactory(this.getApplicationContext(), intent);
 //		factory.setTextContents(textContents);
-		return factory;
-	}
+        return factory;
+    }
 
-	public static int[] getAppWidgetIds() {
-		return appWidgetIds;
-	}
+    public static int[] getAppWidgetIds() {
+        return appWidgetIds;
+    }
 
-	public static void setAppWidgetIds(int[] appWidgetIds) {
-		TextwidgetProviderUpdateService.appWidgetIds = appWidgetIds;
-	}
+    public static void setAppWidgetIds(int[] appWidgetIds) {
+        TextwidgetProviderUpdateService.appWidgetIds = appWidgetIds;
+    }
 
 }

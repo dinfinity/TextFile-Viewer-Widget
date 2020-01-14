@@ -6,7 +6,8 @@
     <string name="cant_read_folder">folder can\'t be read!</string>
     <string name="nnew">New</string>
     <string name="select">Select</string>
-    <string name="file_name">File name:</string>
+    <string name="file_path">File path:</string>
+    <string name="file_uri">File uri:</string>
     <string name="cancel">Cancel</string>
     <string name="create">Save</string>
     <string name="no_data">No Data</string>

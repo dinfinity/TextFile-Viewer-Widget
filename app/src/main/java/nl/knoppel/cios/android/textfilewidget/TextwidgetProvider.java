@@ -43,9 +43,9 @@ public class TextwidgetProvider extends AppWidgetProvider {
 			v.vibrate(100);
 			
 			SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
-			String path = preferences.getString("filename", "");
-			
-			startEditor(context, path);
+			String uri = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_URI, "");
+
+			startEditor(context, uri);
 			
 		} else if (intent.getAction().equals(CLICK_SETTINGS)) {
 			
@@ -90,11 +90,10 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	/**
 	 * Starts the text editor
 	 * @param context
-	 * @param path
+	 * @param uriString
 	 */
-	private void startEditor(Context context, String path) {
-		File file = new File(path);
-		Uri uri = Uri.fromFile(file);
+	private void startEditor(Context context, String uriString) {
+		Uri uri = Uri.parse(uriString);
 		Intent textEditorIntent = new Intent(Intent.ACTION_VIEW);
 		textEditorIntent.setDataAndType(uri, "text/plain");
 		textEditorIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

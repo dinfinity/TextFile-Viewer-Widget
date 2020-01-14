@@ -30,7 +30,7 @@
 			android:layout_height="wrap_content"
 			android:layout_alignParentBottom="true" android:paddingLeft="10dp"
 			android:paddingRight="10dp" android:paddingBottom="5dp">
-			<TextView android:id="@+id/textViewFilename" android:text="@string/file_name"
+			<TextView android:id="@+id/textViewFilename" android:text="@string/file_path"
 				android:layout_width="fill_parent" android:layout_height="wrap_content" />
 			<EditText android:text="" android:id="@+id/fdEditTextFile"
 				android:layout_width="fill_parent" android:layout_height="wrap_content"></EditText>
