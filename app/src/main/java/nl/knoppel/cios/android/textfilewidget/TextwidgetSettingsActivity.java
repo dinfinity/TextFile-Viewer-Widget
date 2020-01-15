@@ -1,6 +1,7 @@
 package nl.knoppel.cios.android.textfilewidget;
 
 import android.appwidget.AppWidgetManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -36,8 +37,8 @@ public class TextwidgetSettingsActivity extends PreferenceActivity {
         this.sharedPreferences = getPreferenceManager().getSharedPreferences();
         this.editor = sharedPreferences.edit();
 
-        Preference fileSelectPreference = (Preference) findPreference(PREF_FILE_PATH);
-        String path = sharedPreferences.getString(PREF_FILE_PATH, "No file selected");
+        Preference fileSelectPreference = (Preference) findPreference(PREF_FILE_URI);
+        String path = sharedPreferences.getString(PREF_FILE_URI, "No file selected");
         fileSelectPreference.setSummary(path);
 
         String lastDir = Environment.getExternalStorageDirectory().getPath();
@@ -52,25 +53,30 @@ public class TextwidgetSettingsActivity extends PreferenceActivity {
 
     private void createFileSelector(final String path) {
         Preference filePathPreference = (Preference) findPreference(TextwidgetSettingsActivity.PREF_FILE_PATH);
-        filePathPreference.setOnPreferenceClickListener(new OnPreferenceClickListener() {
+        if (filePathPreference != null) {
+            filePathPreference.setOnPreferenceClickListener(new OnPreferenceClickListener() {
 
-            public boolean onPreferenceClick(Preference preference) {
+                public boolean onPreferenceClick(Preference preference) {
 
-                Intent intent = new Intent(getBaseContext(), FileDialog.class);
-                intent.putExtra(FileDialog.START_PATH, path);
-                startActivityForResult(intent, FILE_CHOICE_PATH);
+                    Intent intent = new Intent(getBaseContext(), FileDialog.class);
+                    intent.putExtra(FileDialog.START_PATH, path);
+                    startActivityForResult(intent, FILE_CHOICE_PATH);
 
-                return true;
-            }
-        });
+                    return true;
+                }
+            });
+        }
 
         Preference fileUriPreference = (Preference) findPreference(TextwidgetSettingsActivity.PREF_FILE_URI);
         fileUriPreference.setOnPreferenceClickListener(new OnPreferenceClickListener() {
 
             public boolean onPreferenceClick(Preference preference) {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.setType("text/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
+//                intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 intent = Intent.createChooser(intent, "Choose a file");
                 startActivityForResult(intent, FILE_CHOICE_URI);
 
@@ -92,10 +98,15 @@ public class TextwidgetSettingsActivity extends PreferenceActivity {
             case FILE_CHOICE_URI:
                 if (resultCode != RESULT_CANCELED) {
                     Uri uri = data.getData();
-                    assert uri != null;
-                    Log.i(TextwidgetProvider.TAG, "Got uri: " + uri.toString());
+                    if (uri != null) {
+                        Log.i(TextwidgetProvider.TAG, "Got uri: " + uri.toString());
 
-                    updateUri(uri.toString());
+                        int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                        ContentResolver resolver = getContentResolver();
+                        resolver.takePersistableUriPermission(uri, takeFlags);
+
+                        updateUri(uri.toString());
+                    }
                 }
 
                 break;

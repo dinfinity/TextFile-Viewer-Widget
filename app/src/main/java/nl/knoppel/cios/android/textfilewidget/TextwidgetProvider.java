@@ -15,6 +15,7 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	public static final String TAG = "Textfile_Widget";
 	public static final String CLICK_EDIT = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.CLICK_EDIT";
 	public static final String CLICK_SETTINGS = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.CLICK_SETTINGS";
+	public static final String CLICK_REFRESH = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.CLICK_REFRESH";
 	public static final String UPDATE = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.UPDATE";
 
 //	private static HashMap<Integer, FileObserver> observers = new HashMap<Integer, FileObserver>();
@@ -34,11 +35,12 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	@Override
 	public void onReceive(Context context, Intent intent) {
 //		RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
-		
-		Log.d(TAG, "Received intent with action: "+intent.getAction());
+
+		String action = intent.getAction();
+		Log.d(TAG, "Received intent with action: "+ action);
 		int appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1);
 
-		if (intent.getAction().equals(CLICK_EDIT)) {
+		if (action.equals(CLICK_EDIT)) {
 			Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 			v.vibrate(100);
 			
@@ -47,17 +49,20 @@ public class TextwidgetProvider extends AppWidgetProvider {
 
 			startEditor(context, uri);
 			
-		} else if (intent.getAction().equals(CLICK_SETTINGS)) {
+		} else if (action.equals(CLICK_SETTINGS)) {
 			
 			Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 			v.vibrate(100);
 
 			startSettings(context, intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1));
 			
-		} else if (intent.getAction().equals(UPDATE)) {
-			
+		} else if (action.equals(CLICK_REFRESH)) {
 			startUpdate(context);
 			
+		} else if (action.equals(UPDATE)) {
+
+			startUpdate(context);
+
 		} else {
 			super.onReceive(context, intent);
 		}
@@ -94,12 +99,12 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	 */
 	private void startEditor(Context context, String uriString) {
 		Uri uri = Uri.parse(uriString);
-		Intent textEditorIntent = new Intent(Intent.ACTION_VIEW);
+		Intent textEditorIntent = new Intent(Intent.ACTION_EDIT);
 		textEditorIntent.setDataAndType(uri, "text/plain");
 		textEditorIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-//		textEditorIntent.setPackage("com.dropbox.android");
+		textEditorIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+		textEditorIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 		context.startActivity(textEditorIntent);
-
 	}
 
 	/**

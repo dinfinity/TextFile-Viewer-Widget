@@ -293,6 +293,13 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, 0);
         views.setOnClickPendingIntent(R.id.editButton, pendingIntent);
 
+        //=-- Attach refreshbutton listener
+        Intent refreshIntent = new Intent(context, TextwidgetProvider.class);
+        refreshIntent.setAction(TextwidgetProvider.CLICK_REFRESH);
+        refreshIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, 0);
+        views.setOnClickPendingIntent(R.id.refreshButton, refreshPendingIntent);
+
         //=-- Attach settings button listener
         Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
         settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
@@ -307,21 +314,30 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
     public String getFileName(Uri uri) {
         String result = null;
-        if (uri.getScheme().equals("content")) {
-            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
-            try {
-                if (cursor != null && cursor.moveToFirst()) {
-                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+        if (uri != null) {
+            if (uri.getScheme().equals("content")) {
+                Cursor cursor = null;
+                try {
+                    cursor = getContentResolver().query(uri, null, null, null, null);
+                    if (cursor != null && cursor.moveToFirst()) {
+                        result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                    }
+                } catch (Exception e) {
+                    //=-- Best effort
+                    Log.e(TextwidgetProvider.TAG, e.getMessage());
                 }
-            } finally {
-                cursor.close();
+                finally {
+                    if (cursor != null) {
+                        cursor.close();
+                    }
+                }
             }
-        }
-        if (result == null) {
-            result = uri.getPath();
-            int cut = result.lastIndexOf('/');
-            if (cut != -1) {
-                result = result.substring(cut + 1);
+            if (result == null) {
+                result = uri.getPath();
+                int cut = result.lastIndexOf('/');
+                if (cut != -1) {
+                    result = result.substring(cut + 1);
+                }
             }
         }
         return result;
