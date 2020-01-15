@@ -10,6 +10,7 @@ import java.util.HashMap;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -26,8 +27,6 @@ import android.widget.RemoteViewsService;
 
 /**
  * Handles the updating of the widgets
- * <p>
- * TODO [High] Stop file observers
  *
  * @author Dual Infinity
  */
@@ -58,7 +57,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         @Override
         public RemoteViews getLoadingView() {
-            Log.e(TextwidgetProvider.TAG, "LOADINK");
+            Log.d(TextwidgetProvider.TAG, "Loading");
             RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
             rv.setTextViewText(R.id.loadingView, "LOADING");
 
@@ -68,11 +67,10 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         @Override
         public RemoteViews getViewAt(int position) {
-            Log.e(TextwidgetProvider.TAG, "GETVIEWAT");
+            Log.d(TextwidgetProvider.TAG, "ListViewFactory getViewAt");
             // Construct a remote views item based on the app widget item XML file,
             // and set the text based on the position.
             RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
-            rv.setTextViewText(R.id.loadingView, "TEST");
 
             // Return the remote views object.
             return rv;
@@ -102,10 +100,11 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         @Override
         public void onDestroy() {
+            Log.d(TextwidgetProvider.TAG, "ListViewFactory created");
         }
 
         public void setTextContents(HashMap<Integer, String> textContents) {
-            Log.e(TextwidgetProvider.TAG, "SETTEXT");
+            Log.d(TextwidgetProvider.TAG, "ListViewFactory setText");
             this.textContents = textContents;
         }
 
@@ -123,6 +122,20 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
     @Override
     public void onStart(Intent intent, int startId) {
         doUpdate(this);
+    }
+
+    /**
+     * Called by the system to notify a Service that it is no longer used and is being removed.  The
+     * service should clean up any resources it holds (threads, registered
+     * receivers, etc) at this point.  Upon return, there will be no more calls
+     * in to this Service object and it is effectively dead.  Do not call this method directly.
+     */
+    public void onDestroy() {
+        Log.d(TextwidgetProvider.TAG, "Service onDestroy");
+        ContentResolver contentResolver = getContentResolver();
+        for (ContentObserver observer: observers.values()) {
+            contentResolver.unregisterContentObserver(observer);
+        }
     }
 
     /**
@@ -154,7 +167,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         String uriString = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_URI, "");
         Uri uri = Uri.parse(uriString);
-        String readText = "";
+        StringBuilder readText = new StringBuilder();
 
         // =-- Start file observer if necessary
         ContentObserver previousObserver = observers.get(appWidgetId);
@@ -215,7 +228,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
                 String line = reader.readLine();
                 int linesRead = 1;
                 while (line != null && linesRead < MAX_LINES) {
-                    readText += line + "\r\n";
+                    readText.append(line).append("\r\n");
                     line = reader.readLine();
                     linesRead++;
                     textContents.put(linesRead, line);
@@ -259,7 +272,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 //		views.setRemoteAdapter(R.id.listView1, thisIntent);
 
         //=-- Set content text
-        views.setTextViewText(R.id.textContainer, readText);
+        views.setTextViewText(R.id.textContainer, readText.toString());
 
         //=-- Set title
         if (uri != null) {
