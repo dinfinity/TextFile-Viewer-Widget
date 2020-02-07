@@ -136,6 +136,7 @@ public class TextwidgetSettingsActivity extends PreferenceActivity {
         Context context = this.getApplicationContext();
         Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
         settingsIntent.setAction(TextwidgetProvider.UPDATE);
+        settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
         context.sendBroadcast(settingsIntent);
         super.onPause();
     }

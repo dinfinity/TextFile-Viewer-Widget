@@ -1,13 +1,5 @@
 package nl.knoppel.cios.android.textfilewidget;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashMap;
-
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ContentResolver;
@@ -18,11 +10,19 @@ import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.IBinder;
+import android.os.HandlerThread;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.widget.RemoteViews;
-import android.widget.RemoteViewsService;
+
+import androidx.core.app.JobIntentService;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.HashMap;
 
 
 /**
@@ -30,98 +30,19 @@ import android.widget.RemoteViewsService;
  *
  * @author Dual Infinity
  */
-public class TextwidgetProviderUpdateService extends RemoteViewsService {
-
-
-    public class ListViewFactory implements RemoteViewsService.RemoteViewsFactory {
-
-        private Context mContext;
-        private int mAppWidgetId;
-        private HashMap<Integer, String> textContents;
-
-        public ListViewFactory(Context context, Intent intent) {
-            mContext = context;
-            mAppWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
-        }
-
-
-        @Override
-        public int getCount() {
-            return 1;
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return 0;
-        }
-
-        @Override
-        public RemoteViews getLoadingView() {
-            Log.d(TextwidgetProvider.TAG, "Loading");
-            RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
-            rv.setTextViewText(R.id.loadingView, "LOADING");
-
-            // Return the remote views object.
-            return rv;
-        }
-
-        @Override
-        public RemoteViews getViewAt(int position) {
-            Log.d(TextwidgetProvider.TAG, "ListViewFactory getViewAt");
-            // Construct a remote views item based on the app widget item XML file,
-            // and set the text based on the position.
-            RemoteViews rv = new RemoteViews(mContext.getPackageName(), R.layout.loading_view);
-
-            // Return the remote views object.
-            return rv;
-        }
-
-        @Override
-        public int getViewTypeCount() {
-            // TODO Auto-generated method stub
-            return 1;
-        }
-
-        @Override
-        public boolean hasStableIds() {
-            // TODO Auto-generated method stub
-            return false;
-        }
-
-        @Override
-        public void onCreate() {
-            // TODO Auto-generated method stub
-
-        }
-
-        @Override
-        public void onDataSetChanged() {
-        }
-
-        @Override
-        public void onDestroy() {
-            Log.d(TextwidgetProvider.TAG, "ListViewFactory created");
-        }
-
-        public void setTextContents(HashMap<Integer, String> textContents) {
-            Log.d(TextwidgetProvider.TAG, "ListViewFactory setText");
-            this.textContents = textContents;
-        }
-
-    }
-
+public class TextwidgetUpdateService extends JobIntentService {
 
     private HashMap<Integer, ContentObserver> observers = new HashMap<>();
     private HashMap<Integer, String> uris = new HashMap<>();
     private HashMap<Integer, String> textContents = new HashMap<>();
 
     private static final int MAX_LINES = 1000;
-    static int[] appWidgetIds;
     public static final String TAG = "Textfile_Widget";
 
     @Override
-    public void onStart(Intent intent, int startId) {
-        doUpdate(this);
+    protected void onHandleWork(Intent intent) {
+        int appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1);
+        updateWidget(this, appWidgetId);
     }
 
     /**
@@ -139,28 +60,14 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
     }
 
     /**
-     * Starts the update for the registered widgets
-     *
-     * @param context
-     */
-    public void doUpdate(Context context) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
-
-        if (getAppWidgetIds() != null) {
-            for (int appWidgetId : getAppWidgetIds()) {
-                updateWidget(context, views, appWidgetId);
-            }
-        }
-    }
-
-    /**
      * Updates the widget with the correct file contents. Also observes the file for modifications
      *
      * @param context
-     * @param views
      * @param appWidgetId
      */
-    public void updateWidget(final Context context, final RemoteViews views, final int appWidgetId) {
+    public void updateWidget(final Context context, final int appWidgetId) {
+        final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
+
         Log.i(TAG, "Updating widget: " + appWidgetId);
         AppWidgetManager manager = AppWidgetManager.getInstance(this);
         SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
@@ -171,12 +78,19 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         // =-- Start file observer if necessary
         ContentObserver previousObserver = observers.get(appWidgetId);
-        String previousUri = uris.get(appWidgetId);
-        Log.d(TAG, "Uris: " + previousUri + " - " + uriString);
+        String previousUriString = uris.get(appWidgetId);
+        Log.d(TAG, "Previous uri: " + previousUriString);
+        Log.d(TAG, "Current uri: " + uriString);
         boolean notObservingYet = previousObserver == null;
 
-        if (uri != null && (notObservingYet || previousUri == null || !previousUri.equals(uriString))) {
-            final Handler handler = new Handler();
+        if (uri != null && (notObservingYet || previousUriString == null || !previousUriString.equals(uriString))) {
+            // creates and starts a new thread set up as a looper
+            HandlerThread thread = new HandlerThread("MyHandlerThread");
+            thread.start();
+
+            // creates the handler using the passed looper
+            final Handler handler = new Handler(thread.getLooper());
+
             if (previousObserver != null) {
 
                 getContentResolver().unregisterContentObserver(previousObserver);
@@ -196,7 +110,7 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
                          */
                         public void run() {
                             Log.i(TAG, "File modified, initiating update for widget - " + appWidgetId);
-                            updateWidget(context, views, appWidgetId);
+                            updateWidget(context, appWidgetId);
                         }
                     });
 
@@ -263,14 +177,6 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
 
         Log.d(TAG, "File successfully read.");
 
-        //=-- Link this service to remoteviews and the listview
-//		int randomNumber = (int)(Math.random()*10000);
-//		Intent thisIntent = new Intent(context,TextwidgetProviderUpdateService.class);
-//		thisIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-//		thisIntent.putExtra("random", randomNumber);
-//		thisIntent.setData(Uri.parse(thisIntent.toUri(Intent.URI_INTENT_SCHEME)));
-//		views.setRemoteAdapter(R.id.listView1, thisIntent);
-
         //=-- Set content text
         views.setTextViewText(R.id.textContainer, readText.toString());
 
@@ -278,34 +184,6 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
         if (uri != null) {
             views.setTextViewText(R.id.titleContainer, getFileName(uri));
         }
-
-        //=-- Attach update intent
-        Intent updateIntent = new Intent(context, TextwidgetProvider.class);
-        updateIntent.setAction(TextwidgetProvider.UPDATE);
-        updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        PendingIntent updatePendingIntent = PendingIntent.getBroadcast(context, appWidgetId, updateIntent, 0);
-        views.setOnClickPendingIntent(R.id.titleContainer, updatePendingIntent);
-
-        //=-- Attach edit button listener
-        Intent viewIntent = new Intent(context, TextwidgetProvider.class);
-        viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);
-        viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, 0);
-        views.setOnClickPendingIntent(R.id.editButton, pendingIntent);
-
-        //=-- Attach refreshbutton listener
-        Intent refreshIntent = new Intent(context, TextwidgetProvider.class);
-        refreshIntent.setAction(TextwidgetProvider.CLICK_REFRESH);
-        refreshIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, 0);
-        views.setOnClickPendingIntent(R.id.refreshButton, refreshPendingIntent);
-
-        //=-- Attach settings button listener
-        Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
-        settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
-        settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, settingsIntent, 0);
-        views.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
 
         //=-- Do Android widget update
         Log.d(TAG, "Calling Android update.");
@@ -342,26 +220,4 @@ public class TextwidgetProviderUpdateService extends RemoteViewsService {
         }
         return result;
     }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public RemoteViewsFactory onGetViewFactory(Intent intent) {
-        Log.d(TAG, "ONGETVIEW.");
-        ListViewFactory factory = new ListViewFactory(this.getApplicationContext(), intent);
-//		factory.setTextContents(textContents);
-        return factory;
-    }
-
-    public static int[] getAppWidgetIds() {
-        return appWidgetIds;
-    }
-
-    public static void setAppWidgetIds(int[] appWidgetIds) {
-        TextwidgetProviderUpdateService.appWidgetIds = appWidgetIds;
-    }
-
 }
