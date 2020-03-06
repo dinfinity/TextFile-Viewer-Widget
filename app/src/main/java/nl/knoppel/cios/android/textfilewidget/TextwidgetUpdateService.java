@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 
-
 /**
  * Handles the updating of the widgets
  *
@@ -34,7 +33,6 @@ public class TextwidgetUpdateService extends JobIntentService {
 
     private HashMap<Integer, ContentObserver> observers = new HashMap<>();
     private HashMap<Integer, String> uris = new HashMap<>();
-    private HashMap<Integer, String> textContents = new HashMap<>();
 
     private static final int MAX_LINES = 1000;
     public static final String TAG = "Textfile_Widget";
@@ -42,6 +40,7 @@ public class TextwidgetUpdateService extends JobIntentService {
     @Override
     protected void onHandleWork(Intent intent) {
         int appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1);
+        Log.i(TAG, "[UpdateService] OnHandleWork for widget: " + appWidgetId);
         updateWidget(this, appWidgetId);
     }
 
@@ -52,7 +51,7 @@ public class TextwidgetUpdateService extends JobIntentService {
      * in to this Service object and it is effectively dead.  Do not call this method directly.
      */
     public void onDestroy() {
-        Log.d(TextwidgetProvider.TAG, "Service onDestroy");
+        Log.d(TextwidgetProvider.TAG, "[UpdateService] Service onDestroy");
         ContentResolver contentResolver = getContentResolver();
         for (ContentObserver observer: observers.values()) {
             contentResolver.unregisterContentObserver(observer);
@@ -69,19 +68,46 @@ public class TextwidgetUpdateService extends JobIntentService {
         final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
         TextwidgetProvider.attachButtonListeners(context, appWidgetId, views);
 
-        Log.i(TAG, "Updating widget: " + appWidgetId);
+        Log.i(TAG, "[UpdateService] Updating widget: " + appWidgetId);
         AppWidgetManager manager = AppWidgetManager.getInstance(this);
         SharedPreferences preferences = context.getSharedPreferences(TextwidgetSettingsActivity.WIDGET_PREFS_PREFIX + appWidgetId, Context.MODE_PRIVATE);
 
         String uriString = preferences.getString(TextwidgetSettingsActivity.PREF_FILE_URI, "");
+        Log.d(TAG, "[UpdateService] Stored uri: " + uriString);
+        String previousUriString = uris.get(appWidgetId);
+        Log.d(TAG, "[UpdateService] Previous uri: " + previousUriString);
         Uri uri = Uri.parse(uriString);
-        StringBuilder readText = new StringBuilder();
 
         // =-- Start file observer if necessary
+//        uri = addFileObserverToUri(appWidgetId, context, previousUriString, uri);
+
+        //=-- Read text from uri
+        StringBuilder readText = readTextFromUri(appWidgetId, uri);
+
+        //=-- Set content text
+        views.setTextViewText(R.id.textContainer, readText.toString());
+
+        //=-- Set title
+        if (uri != null) {
+            views.setTextViewText(R.id.titleContainer, getFileName(uri));
+        }
+
+        //=-- Do Android widget update
+        Log.d(TAG, "[UpdateService] Calling Android update.");
+        manager.updateAppWidget(appWidgetId, views);
+    }
+
+    /**
+     *
+     * @param appWidgetId
+     * @param context
+     * @param previousUriString
+     * @param uri
+     * @return
+     */
+    private Uri addFileObserverToUri(final int appWidgetId, final Context context, String previousUriString, Uri uri) {
         ContentObserver previousObserver = observers.get(appWidgetId);
-        String previousUriString = uris.get(appWidgetId);
-        Log.d(TAG, "Previous uri: " + previousUriString);
-        Log.d(TAG, "Current uri: " + uriString);
+        String uriString = uri.toString();
         boolean notObservingYet = previousObserver == null;
 
         if (uri != null && (notObservingYet || previousUriString == null || !previousUriString.equals(uriString))) {
@@ -97,7 +123,7 @@ public class TextwidgetUpdateService extends JobIntentService {
                 getContentResolver().unregisterContentObserver(previousObserver);
                 this.observers.remove(appWidgetId);
 //				TextwidgetProvider.observers.remove(appWidgetId);
-                Log.i(TAG, "Removed observer for widget: " + appWidgetId);
+                Log.i(TAG, "[UpdateService] Removed observer for widget: " + appWidgetId);
             }
 
             ContentObserver observer = new ContentObserver(handler) {
@@ -110,14 +136,14 @@ public class TextwidgetUpdateService extends JobIntentService {
                          * Update the widget if the file has changed
                          */
                         public void run() {
-                            Log.i(TAG, "File modified, initiating update for widget - " + appWidgetId);
+                            Log.i(TAG, "[UpdateService] File modified, initiating update for widget - " + appWidgetId);
                             updateWidget(context, appWidgetId);
                         }
                     });
 
                 }
             };
-            Log.i(TAG, "Observing modification for uri: " + uriString);
+            Log.i(TAG, "[UpdateService] Observing modification for uri: " + uriString);
             try {
                 getContentResolver().registerContentObserver(uri, false, observer);
                 this.observers.put(appWidgetId, observer);
@@ -127,9 +153,19 @@ public class TextwidgetUpdateService extends JobIntentService {
                 uri = null;
             }
         }
+        return uri;
+    }
 
+    /**
+     *
+     * @param appWidgetId
+     * @param uri
+     * @return
+     */
+    private StringBuilder readTextFromUri(int appWidgetId, Uri uri) {
+        StringBuilder readText = new StringBuilder();
         if (uri == null) {
-            textContents.put(appWidgetId, "Erroneous input file.");
+            readText.append("Erroneous input file.");
             Log.d(TAG, "Erroneous input file.");
         } else {
 
@@ -146,18 +182,18 @@ public class TextwidgetUpdateService extends JobIntentService {
                     readText.append(line).append("\r\n");
                     line = reader.readLine();
                     linesRead++;
-                    textContents.put(linesRead, line);
                 }
-                this.uris.put(appWidgetId, uriString);
+                Log.d(TAG, "[UpdateService] File successfully read.");
+                this.uris.put(appWidgetId, uri.toString());
 
             } catch (FileNotFoundException e) {
-                textContents.put(appWidgetId, "File not found.");
+                readText.append("File not found.");
                 Log.d(TAG, e.toString());
             } catch (IOException e) {
-                textContents.put(appWidgetId, "Error opening file.");
+                readText.append("Error opening file.");
                 Log.d(TAG, e.toString());
             } catch (Exception e) {
-                textContents.put(appWidgetId, "Unknown error: " + e.getMessage());
+                readText.append("Unknown error: ").append(e.getMessage());
                 Log.d(TAG, e.toString());
             } finally {
                 try {
@@ -175,23 +211,15 @@ public class TextwidgetUpdateService extends JobIntentService {
                 }
             }
         }
-
-        Log.d(TAG, "File successfully read.");
-
-        //=-- Set content text
-        views.setTextViewText(R.id.textContainer, readText.toString());
-
-        //=-- Set title
-        if (uri != null) {
-            views.setTextViewText(R.id.titleContainer, getFileName(uri));
-        }
-
-        //=-- Do Android widget update
-        Log.d(TAG, "Calling Android update.");
-        manager.updateAppWidget(appWidgetId, views);
+        return readText;
     }
 
-    public String getFileName(Uri uri) {
+    /**
+     *
+     * @param uri
+     * @return
+     */
+    private String getFileName(Uri uri) {
         String result = null;
         if (uri != null) {
             if (uri.getScheme().equals("content")) {
