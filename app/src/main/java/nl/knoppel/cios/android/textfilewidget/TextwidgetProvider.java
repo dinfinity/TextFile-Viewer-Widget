@@ -22,14 +22,14 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	public static final String CLICK_REFRESH = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.CLICK_REFRESH";
 	public static final String UPDATE = "nl.knoppel.cios.android.textwidget.TextwidgetProvider.UPDATE";
 
+	/**
+	 * Maybe only called on addition of first widget of this type
+	 *
+	 * @param context
+	 */
 	public void onEnabled(Context context) {
 		Log.d(TextwidgetProvider.TAG, "OnEnabled");
-
-		//TODO Perhaps add click intents here as well
-//		RemoteViews rv = new RemoteViews(context.getPackageName(), R.layout.main);
-//		attachButtonListeners(context, currentAppWidgetId, rv);
 	}
-
 
 	/**
 	 * @link https://developer.android.com/guide/topics/appwidgets#java
@@ -118,7 +118,12 @@ public class TextwidgetProvider extends AppWidgetProvider {
 		Log.d(TAG, "Received intent with action: "+ action);
 		int appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1);
 
-		if (action.equals(CLICK_EDIT)) {
+		if (action == null) {
+			//=-- Reinit remote view, possibly for reboot
+			Log.d(TAG, "Reiniting remote views 1 -- action null");
+			initRemoteViews(context, appWidgetId);
+
+		} else  if (action.equals(CLICK_EDIT)) {
 			Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 			v.vibrate(100);
 			
@@ -142,6 +147,10 @@ public class TextwidgetProvider extends AppWidgetProvider {
 			startUpdate(context,appWidgetId);
 
 		} else {
+			//=-- Reinit remote view, possibly for reboot
+			Log.d(TAG, "Reiniting remote views 2 -- action: " + action);
+			initRemoteViews(context, appWidgetId);
+
 			super.onReceive(context, intent);
 		}
 	}
