@@ -1,6 +1,5 @@
 package nl.knoppel.cios.android.textfilewidget;
 
-import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -65,8 +64,7 @@ public class TextwidgetUpdateService extends JobIntentService {
      * @param appWidgetId
      */
     public void updateWidget(final Context context, final int appWidgetId) {
-        final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
-        TextwidgetProvider.attachButtonListeners(context, appWidgetId, views);
+        final RemoteViews views = TextwidgetProvider.initRemoteViews(context, appWidgetId);
 
         Log.i(TAG, "[UpdateService] Updating widget: " + appWidgetId);
         AppWidgetManager manager = AppWidgetManager.getInstance(this);

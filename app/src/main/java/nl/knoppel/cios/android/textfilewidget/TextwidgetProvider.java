@@ -46,17 +46,9 @@ public class TextwidgetProvider extends AppWidgetProvider {
 		for (int i = 0; i < appWidgetIds.length; ++i) {
 			int currentAppWidgetId = appWidgetIds[i];
 
-//			Intent intent = new Intent(context, TextwidgetRemoteViewsService.class);
-//			intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, currentAppWidgetId);
-//			intent.setData(Uri.parse(intent.toUri(Intent.URI_INTENT_SCHEME)));
+			RemoteViews remoteViews = initRemoteViews(context, currentAppWidgetId);
 
-			RemoteViews rv = new RemoteViews(context.getPackageName(), R.layout.main);
-			attachButtonListeners(context, currentAppWidgetId, rv);
-
-			//			rv.setRemoteAdapter(R.id.textContainer, intent);
-//			rv.setEmptyView(R.id.textContainer, R.id.loadingView);
-
-			appWidgetManager.updateAppWidget(currentAppWidgetId, rv);
+			appWidgetManager.updateAppWidget(currentAppWidgetId, remoteViews);
 
 			startUpdate(context, currentAppWidgetId);
 		}
@@ -67,30 +59,42 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	/**
 	 *
 	 * @param context
-	 * @param currentAppWidgetId
-	 * @param rv
+	 * @param appWidgetId
+	 * @return
 	 */
-	public static void attachButtonListeners(Context context, int currentAppWidgetId, RemoteViews rv) {
+	public static RemoteViews initRemoteViews(Context context, int appWidgetId) {
+		RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.main);
+		attachButtonListeners(context, appWidgetId, remoteViews);
+		return remoteViews;
+	}
+
+	/**
+	 *
+	 * @param context
+	 * @param appWidgetId
+	 * @param remoteViews
+	 */
+	public static void attachButtonListeners(Context context, int appWidgetId, RemoteViews remoteViews) {
 		//=-- Attach edit button listener
 		Intent viewIntent = new Intent(context, TextwidgetProvider.class);
 		viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);
-		viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, currentAppWidgetId);
-		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, currentAppWidgetId, viewIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-		rv.setOnClickPendingIntent(R.id.editButton, pendingIntent);
+		viewIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+		PendingIntent pendingIntent = PendingIntent.getBroadcast(context, appWidgetId, viewIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+		remoteViews.setOnClickPendingIntent(R.id.editButton, pendingIntent);
 
 		//=-- Attach refreshbutton listener
 		Intent refreshIntent = new Intent(context, TextwidgetProvider.class);
 		refreshIntent.setAction(TextwidgetProvider.CLICK_REFRESH);
-		refreshIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, currentAppWidgetId);
-		PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, currentAppWidgetId, refreshIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-		rv.setOnClickPendingIntent(R.id.refreshButton, refreshPendingIntent);
+		refreshIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+		PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, refreshIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+		remoteViews.setOnClickPendingIntent(R.id.refreshButton, refreshPendingIntent);
 
 		//=-- Attach settings button listener
 		Intent settingsIntent = new Intent(context, TextwidgetProvider.class);
 		settingsIntent.setAction(TextwidgetProvider.CLICK_SETTINGS);
-		settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, currentAppWidgetId);
-		PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, currentAppWidgetId, settingsIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-		rv.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
+		settingsIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+		PendingIntent settingsPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, settingsIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+		remoteViews.setOnClickPendingIntent(R.id.settingsButton, settingsPendingIntent);
 	}
 
 	/**
@@ -109,7 +113,6 @@ public class TextwidgetProvider extends AppWidgetProvider {
 		Log.d(TextwidgetProvider.TAG, "OnReceive");
 
 		super.onReceive(context, intent);
-//		RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
 
 		String action = intent.getAction();
 		Log.d(TAG, "Received intent with action: "+ action);
