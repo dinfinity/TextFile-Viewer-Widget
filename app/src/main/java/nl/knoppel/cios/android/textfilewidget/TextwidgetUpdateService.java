@@ -79,6 +79,7 @@ public class TextwidgetUpdateService extends JobIntentService {
         Uri uri = Uri.parse(uriString);
 
         // =-- Start file observer if necessary
+        // TODO [Medium] Service is immediately destroyed. This can only work with some persistent background service
 //        uri = addFileObserverToUri(appWidgetId, context, previousUriString, uri);
 
         //=-- Read text from uri
