@@ -70,7 +70,7 @@ public class TextwidgetProvider extends AppWidgetProvider {
 	 * @param currentAppWidgetId
 	 * @param rv
 	 */
-	private void attachButtonListeners(Context context, int currentAppWidgetId, RemoteViews rv) {
+	public static void attachButtonListeners(Context context, int currentAppWidgetId, RemoteViews rv) {
 		//=-- Attach edit button listener
 		Intent viewIntent = new Intent(context, TextwidgetProvider.class);
 		viewIntent.setAction(TextwidgetProvider.CLICK_EDIT);

@@ -67,6 +67,7 @@ public class TextwidgetUpdateService extends JobIntentService {
      */
     public void updateWidget(final Context context, final int appWidgetId) {
         final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
+        TextwidgetProvider.attachButtonListeners(context, appWidgetId, views);
 
         Log.i(TAG, "Updating widget: " + appWidgetId);
         AppWidgetManager manager = AppWidgetManager.getInstance(this);
